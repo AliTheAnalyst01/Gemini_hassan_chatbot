@@ -1,51 +1,64 @@
 import streamlit as st
 import google.generativeai as genai
-
 import os
+import logging
 from dotenv import load_dotenv
+
+# Load environment variables
 load_dotenv()
-
-# Set up the API key
 key = os.getenv('GOOGLE_API_KEY')
-genai.configure(api_key=key)
 
-# Initialize the Gemini Pro model
+# Configure the Generative AI API
+genai.configure(api_key=key)
 model = genai.GenerativeModel('gemini-pro')
 
-# Start a chat session with an empty history
+# Initialize chat
 chat = model.start_chat(history=[])
 
-# Function to get a response from the Gemini model
-def get_gemini_response(question):
-    response = chat.send_message(question, stream=True)
-    response_text = "".join(chunk.text for chunk in response)
-    return response_text
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
-# Set the page configuration
+def get_gemini_response(question):
+    try:
+        # Send the message to the chat model
+        response = chat.send_message(question, stream=True)
+        
+        # Initialize an empty response text
+        response_text = ""
+
+        # Extract text from response, checking for 'text' attribute
+        for chunk in response:
+            if hasattr(chunk, 'text'):
+                response_text += chunk.text
+
+        return response_text
+    except Exception as e:
+        logging.error(f"Error occurred: {e}")
+        return "An error occurred while processing your request."
+
+# Set up Streamlit page configuration
 st.set_page_config(page_title='Q&A Demo')
 
 # Header for the chatbot
 st.header('Hassan chatbot 💬 💬')
 
-# Initialize the chat history in session_state if it does not exist
+# Initialize chat history in session state
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
 
-# Input for user query
-input_query = st.text_input('Input your query:', key='input')
+# Text input for user queries
+input_query = st.text_input('Input your query: ', key='input')
 
-# Button to submit the query
+# Submit button
 submit = st.button('Submit the query')
 
-# Process the user's input and get the bot's response
+# Process the input when submitted
 if submit and input_query:
     response = get_gemini_response(input_query)
-    # Append the conversation to chat history
     st.session_state['chat_history'].append(('You', input_query, 'Hassan Bot', response))
 
 # Display the chat history
 st.subheader('Your chat history')
-
 for user_role, user_text, bot_role, bot_text in st.session_state['chat_history']:
     with st.container():
         st.markdown(f"""
